@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notes &amp; Kanban Board</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --surface2: #f7f8fa;
+    --border: #dde0e4;
+    --text: #1a1a2e;
+    --text2: #555;
+    --primary: #4f46e5;
+    --primary-hover: #4338ca;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --radius: 10px;
+    --radius-sm: 6px;
+    --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --drag-over-bg: #eef2ff;
+    --danger-hover-bg: #fef2f2;
+  }
+
+  html.dark {
+    --bg: #121212;
+    --surface: #1e1e1e;
+    --surface2: #2a2a2a;
+    --border: #3a3a3a;
+    --text: #e4e4e7;
+    --text2: #a1a1aa;
+    --primary: #818cf8;
+    --primary-hover: #6366f1;
+    --danger: #f87171;
+    --danger-hover: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --drag-over-bg: #1e1b4b;
+    --danger-hover-bg: #2a0a0a;
+  }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .app { max-width: 1280px; margin: 0 auto; }
+
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .theme-toggle {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .theme-toggle:hover {
+    border-color: var(--primary);
+    background: var(--surface);
+  }
+
+  /* ---- Sections ---- */
+  .section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .section-header h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  /* ---- Notes ---- */
+  .note-input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .note-input-row input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.925rem;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .note-input-row input:focus { border-color: var(--primary); }
+
+  .btn {
+    padding: 9px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-danger { background: transparent; color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-hover-bg); }
+  .btn-sm { padding: 5px 12px; font-size: 0.8rem; }
+
+  .notes-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .note-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+
+  .note-text {
+    flex: 1;
+    font-size: 0.925rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .note-text.hidden { display: none; }
+  .note-edit-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.925rem;
+    font-family: var(--font);
+    outline: none;
+    display: none;
+  }
+  .note-edit-input.show { display: block; }
+
+  .note-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+  /* ---- Kanban ---- */
+  .kanban-board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .kanban-column {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 14px;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .kanban-column.drag-over {
+    background: var(--drag-over-bg);
+    border-color: var(--primary);
+  }
+
+  .col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .col-header h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .col-count {
+    font-size: 0.75rem;
+    color: var(--text2);
+    font-weight: 500;
+  }
+
+  .add-task-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .add-task-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .add-task-row input:focus { border-color: var(--primary); }
+
+  .task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 60px;
+  }
+
+  .task-card {
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: box-shadow 0.15s, opacity 0.15s;
+  }
+
+  .task-card:active { cursor: grabbing; }
+  .task-card.dragging { opacity: 0.5; }
+
+  .task-text {
+    flex: 1;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .task-text.hidden { display: none; }
+  .task-edit-input {
+    flex: 1;
+    padding: 4px 8px;
+    border: 1px solid var(--primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-family: var(--font);
+    outline: none;
+    display: none;
+  }
+  .task-edit-input.show { display: block; }
+
+  .task-actions { display: flex; gap: 2px; flex-shrink: 0; }
+  .task-actions .btn { padding: 3px 8px; font-size: 0.7rem; }
+
+  .empty-message {
+    color: var(--text2);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 24px 8px;
+    font-style: italic;
+  }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 800px) {
+    .kanban-board { grid-template-columns: 1fr; }
+    body { padding: 14px; }
+    .section { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="app-header">
+    <h1>&#128203; Notes &amp; Kanban</h1>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">&#127769; Dark Mode</button>
+  </div>
+
+  <!-- ============ NOTES ============ -->
+  <section class="section" id="notes-section">
+    <div class="section-header">
+      <h2>&#128221; Notes</h2>
+    </div>
+    <div class="note-input-row">
+      <input type="text" id="noteInput" placeholder="Write a note..." autocomplete="off">
+      <button class="btn btn-primary" id="addNoteBtn">Add Note</button>
+    </div>
+    <div class="notes-list" id="notesList"></div>
+  </section>
+
+  <!-- ============ KANBAN ============ -->
+  <section class="section" id="kanban-section">
+    <div class="section-header">
+      <h2>&#128196; Kanban Board</h2>
+    </div>
+    <div class="kanban-board" id="kanbanBoard">
+      <div class="kanban-column" data-col="todo">
+        <div class="col-header">
+          <h3>To Do</h3>
+          <span class="col-count" id="count-todo">0 tasks</span>
+        </div>
+        <div class="add-task-row">
+          <input type="text" placeholder="Add task..." autocomplete="off" class="task-input" data-col="todo">
+          <button class="btn btn-primary btn-sm add-task-btn" data-col="todo">Add</button>
+        </div>
+        <div class="task-list" id="list-todo"></div>
+      </div>
+      <div class="kanban-column" data-col="progress">
+        <div class="col-header">
+          <h3>In Progress</h3>
+          <span class="col-count" id="count-progress">0 tasks</span>
+        </div>
+        <div class="add-task-row">
+          <input type="text" placeholder="Add task..." autocomplete="off" class="task-input" data-col="progress">
+          <button class="btn btn-primary btn-sm add-task-btn" data-col="progress">Add</button>
+        </div>
+        <div class="task-list" id="list-progress"></div>
+      </div>
+      <div class="kanban-column" data-col="done">
+        <div class="col-header">
+          <h3>Done</h3>
+          <span class="col-count" id="count-done">0 tasks</span>
+        </div>
+        <div class="add-task-row">
+          <input type="text" placeholder="Add task..." autocomplete="off" class="task-input" data-col="done">
+          <button class="btn btn-primary btn-sm add-task-btn" data-col="done">Add</button>
+        </div>
+        <div class="task-list" id="list-done"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ---------- Storage helpers ----------
+  function loadData(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch { return fallback; }
+  }
+
+  function saveData(key, data) {
+    localStorage.setItem(key, JSON.stringify(data));
+  }
+
+  // ---------- Theme ----------
+  const THEME_KEY = 'app_theme';
+  const themeToggle = document.getElementById('themeToggle');
+
+  function applyTheme(theme) {
+    const isDark = theme === 'dark';
+    document.documentElement.classList.toggle('dark', isDark);
+    themeToggle.innerHTML = isDark
+      ? '&#9728;&#65039; Light Mode'
+      : '&#127769; Dark Mode';
+    saveData(THEME_KEY, theme);
+  }
+
+  function toggleTheme() {
+    const next = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+    applyTheme(next);
+  }
+
+  const savedTheme = loadData(THEME_KEY, 'light');
+  applyTheme(savedTheme);
+  themeToggle.addEventListener('click', toggleTheme);
+
+  // ---------- Notes ----------
+  const NOTES_KEY = 'app_notes';
+  let notes = loadData(NOTES_KEY, []);
+
+  const noteInput = document.getElementById('noteInput');
+  const addNoteBtn = document.getElementById('addNoteBtn');
+  const notesList = document.getElementById('notesList');
+
+  function renderNotes() {
+    if (!notes.length) {
+      notesList.innerHTML = '<div class="empty-message">No notes yet. Add one above!</div>';
+      return;
+    }
+    notesList.innerHTML = notes.map((n, i) => {
+      const escaped = n.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<div class="note-item" data-index="${i}">
+        <span class="note-text">${escaped}</span>
+        <input type="text" class="note-edit-input" value="${escaped}">
+        <div class="note-actions">
+          <button class="btn btn-sm btn-edit-note">Edit</button>
+          <button class="btn btn-sm btn-danger btn-del-note">Delete</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function addNote() {
+    const val = noteInput.value.trim();
+    if (!val) return;
+    notes.push({ text: val });
+    noteInput.value = '';
+    saveData(NOTES_KEY, notes);
+    renderNotes();
+  }
+
+  notesList.addEventListener('click', function(e) {
+    const item = e.target.closest('.note-item');
+    if (!item) return;
+    const idx = parseInt(item.dataset.index, 10);
+
+    if (e.target.classList.contains('btn-del-note')) {
+      notes.splice(idx, 1);
+      saveData(NOTES_KEY, notes);
+      renderNotes();
+      return;
+    }
+
+    if (e.target.classList.contains('btn-edit-note')) {
+      const text = item.querySelector('.note-text');
+      const input = item.querySelector('.note-edit-input');
+      const editing = !input.classList.contains('show');
+      if (editing) {
+        text.classList.add('hidden');
+        input.classList.add('show');
+        input.focus();
+        input.select();
+        e.target.textContent = 'Save';
+      } else {
+        const val = input.value.trim();
+        if (!val) return;
+        notes[idx].text = val;
+        saveData(NOTES_KEY, notes);
+        renderNotes();
+      }
+    }
+  });
+
+  notesList.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const input = e.target.closest('.note-edit-input');
+      if (input) {
+        const item = input.closest('.note-item');
+        const idx = parseInt(item.dataset.index, 10);
+        const val = input.value.trim();
+        if (!val) return;
+        notes[idx].text = val;
+        saveData(NOTES_KEY, notes);
+        renderNotes();
+      }
+    }
+  });
+
+  addNoteBtn.addEventListener('click', addNote);
+  noteInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') addNote(); });
+
+  // ---------- Kanban ----------
+  const KANBAN_KEY = 'app_kanban';
+  let kanban = loadData(KANBAN_KEY, { todo: [], progress: [], done: [] });
+  const COLUMNS = ['todo', 'progress', 'done'];
+  let draggedId = null;
+
+  function kanbanId() { return 'k_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6); }
+
+  function countTasks(col) { return kanban[col] ? kanban[col].length : 0; }
+
+  function updateCounts() {
+    COLUMNS.forEach(c => {
+      const el = document.getElementById('count-' + c);
+      if (el) {
+        const n = countTasks(c);
+        el.textContent = n === 1 ? '1 task' : n + ' tasks';
+      }
+    });
+  }
+
+  function getTaskEl(id) {
+    return document.querySelector(`.task-card[data-id="${id}"]`);
+  }
+
+  function renderColumn(col) {
+    const list = document.getElementById('list-' + col);
+    const tasks = kanban[col] || [];
+    if (!tasks.length) {
+      list.innerHTML = '<div class="empty-message">No tasks</div>';
+    } else {
+      list.innerHTML = tasks.map(t => {
+        const escaped = t.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<div class="task-card" draggable="true" data-id="${t.id}">
+          <span class="task-text">${escaped}</span>
+          <input type="text" class="task-edit-input" value="${escaped}">
+          <div class="task-actions">
+            <button class="btn btn-sm btn-edit-task">Edit</button>
+            <button class="btn btn-sm btn-danger btn-del-task">Delete</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    updateCounts();
+  }
+
+  function renderKanban() {
+    COLUMNS.forEach(c => renderColumn(c));
+    attachDragHandlers();
+  }
+
+  function addTask(col) {
+    const input = document.querySelector(`.task-input[data-col="${col}"]`);
+    const val = input.value.trim();
+    if (!val) return;
+    if (!kanban[col]) kanban[col] = [];
+    kanban[col].push({ id: kanbanId(), text: val });
+    input.value = '';
+    saveData(KANBAN_KEY, kanban);
+    renderColumn(col);
+    attachDragHandlers();
+  }
+
+  // ---------- Drag & Drop ----------
+  function attachDragHandlers() {
+    document.querySelectorAll('.task-card').forEach(card => {
+      card.addEventListener('dragstart', onDragStart);
+      card.addEventListener('dragend', onDragEnd);
+    });
+    document.querySelectorAll('.kanban-column').forEach(col => {
+      col.addEventListener('dragover', onDragOver);
+      col.addEventListener('dragenter', onDragEnter);
+      col.addEventListener('dragleave', onDragLeave);
+      col.addEventListener('drop', onDrop);
+    });
+  }
+
+  function onDragStart(e) {
+    draggedId = this.dataset.id;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', draggedId);
+  }
+
+  function onDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.kanban-column').forEach(c => c.classList.remove('drag-over'));
+    draggedId = null;
+  }
+
+  function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }
+
+  function onDragEnter(e) {
+    e.preventDefault();
+    this.classList.add('drag-over');
+  }
+
+  function onDragLeave(e) {
+    this.classList.remove('drag-over');
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    const id = e.dataTransfer.getData('text/plain');
+    if (!id) return;
+
+    const targetCol = this.dataset.col;
+    let fromCol = null;
+    let taskData = null;
+
+    for (const c of COLUMNS) {
+      const idx = kanban[c].findIndex(t => t.id === id);
+      if (idx !== -1) {
+        fromCol = c;
+        taskData = kanban[c].splice(idx, 1)[0];
+        break;
+      }
+    }
+
+    if (!taskData || fromCol === targetCol) {
+      if (taskData && fromCol === targetCol) {
+        kanban[fromCol].push(taskData);
+      }
+      renderKanban();
+      return;
+    }
+
+    if (!kanban[targetCol]) kanban[targetCol] = [];
+    kanban[targetCol].push(taskData);
+    saveData(KANBAN_KEY, kanban);
+    renderKanban();
+  }
+
+  // ---------- Kanban events ----------
+  document.getElementById('kanbanBoard').addEventListener('click', function(e) {
+    const card = e.target.closest('.task-card');
+    if (!card) return;
+    const id = card.dataset.id;
+
+    if (e.target.classList.contains('btn-del-task')) {
+      for (const c of COLUMNS) {
+        const idx = kanban[c].findIndex(t => t.id === id);
+        if (idx !== -1) {
+          kanban[c].splice(idx, 1);
+          saveData(KANBAN_KEY, kanban);
+          renderColumn(c);
+          attachDragHandlers();
+          return;
+        }
+      }
+    }
+
+    if (e.target.classList.contains('btn-edit-task')) {
+      const text = card.querySelector('.task-text');
+      const input = card.querySelector('.task-edit-input');
+      const editing = !input.classList.contains('show');
+      if (editing) {
+        text.classList.add('hidden');
+        input.classList.add('show');
+        input.focus();
+        input.select();
+        e.target.textContent = 'Save';
+      } else {
+        const val = input.value.trim();
+        if (!val) return;
+        for (const c of COLUMNS) {
+          const idx = kanban[c].findIndex(t => t.id === id);
+          if (idx !== -1) {
+            kanban[c][idx].text = val;
+            saveData(KANBAN_KEY, kanban);
+            renderColumn(c);
+            attachDragHandlers();
+            return;
+          }
+        }
+      }
+    }
+  });
+
+  document.getElementById('kanbanBoard').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const input = e.target.closest('.task-edit-input');
+      if (!input) return;
+      const card = input.closest('.task-card');
+      const id = card.dataset.id;
+      const val = input.value.trim();
+      if (!val) return;
+      for (const c of COLUMNS) {
+        const idx = kanban[c].findIndex(t => t.id === id);
+        if (idx !== -1) {
+          kanban[c][idx].text = val;
+          saveData(KANBAN_KEY, kanban);
+          renderColumn(c);
+          attachDragHandlers();
+          return;
+        }
+      }
+    }
+  });
+
+  document.querySelectorAll('.add-task-btn').forEach(btn => {
+    btn.addEventListener('click', function() { addTask(this.dataset.col); });
+  });
+
+  document.querySelectorAll('.task-input').forEach(inp => {
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') addTask(this.dataset.col);
+    });
+  });
+
+  // ---------- Init ----------
+  renderNotes();
+  renderKanban();
+})();
+</script>
+</body>
+</html>
